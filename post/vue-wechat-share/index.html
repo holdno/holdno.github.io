@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en-us">
+	<head>
+    <meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+<meta name="generator" content="Hugo 0.59.1" />
+<title>Vue 微信分享</title>
+<link rel="shortcut icon" href="http://ojbk.io/images/favicon.ico">
+<link rel="stylesheet" href="http://ojbk.io/css/style.css">
+<link rel="stylesheet" href="http://ojbk.io/css/highlight.css">
+
+
+
+<link rel="stylesheet" href="http://ojbk.io/css/monosocialiconsfont.css">
+
+
+
+
+<meta property="og:title" content="Vue 微信分享" />
+<meta property="og:description" content="SPA单页应用中微信授权登录的一点思路 单页应用应该如何解决微信授权登录的尴尬跳转？后退无法返回？ 主要遇到的问题就是
+先进入单页应用，一边渲染页面一边判断用户有没有登录，当判断到没有登录时异步数据请求已经发送出去了，然后要跳转到微信授权页面，这样就浪费了一次网络请求且用户可能要去点击这个数据了结果&hellip;跳走了！在授权成功后用户点击后退再次进行授权有没有？？？ 本文主要讲述
+&gt; 对于单页应用应该在哪个阶段获取微信授权？
+&gt; 只考虑网站完全依赖微信授权登录，一进入就要以授权的身份进入
+基本思路 核心是需要有个author.vue 叫它授权中间页好了
+vue开发过程中的一些点子 由于我的业务是完全依赖微信授权登录的，也就是用户一进来就应该是已经完成授权的
+为了避免让用户明显感觉到先进入网站然后又跳转到微信授权页面
+我们从vue-router下手
+基本实现思路是： - 无论使用哪个url进入网站都会先触发router.beforeEach钩子 - 在router.beforeEach钩子中判断用户当前登录状态 - 若没有登录则保存用户进入的url并跳转到author授权页面
+- author授权页面完成微信授权以及token的写入实现用户登录 - 获取前面保存的用户进入url并跳转
+经过这样一个流程，用户感觉到的就是，无论从哪个url进入SPA，都会先显示author页面，然后再进入自己想要进入的页面，而不是先进入自己想要进入的页面再闪到author页面，这样不仅节省了资源也提升了用户体验，更重要的一点是！我们的项目多了一个广告页面(无语&hellip;)！！！
+先贴上我的实现代码
+用户信息保存在Vuex中
+// holdno是我自己定义的一个工具集 里面有各种操作方法 router.beforeEach((to, from, next) =&gt; { if(!store.state.user.id &amp;&amp; to.path != &#39;/author&#39;){ // 第一次进入项目 holdno.cookie.set(&#39;beforeLoginUrl&#39;, to.fullPath) // 保存用户进入的url next(&#39;/author&#39;) return false } next() })  下面来看一下author页面的处理逻辑
+created () { // 检测会员有没有登录 if(!holdno.cookie.get(&#39;user&#39;)){ let ua = window.navigator.userAgent.toLowerCase() if(ua.match(/MicroMessenger/i) == &#39;micromessenger&#39;){ // 跳转到微信授权页面 window." />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="http://ojbk.io/post/vue-wechat-share/" />
+<meta property="article:published_time" content="2018-10-15T15:09:56+08:00" />
+<meta property="article:modified_time" content="2018-10-15T15:09:56+08:00" />
+
+
+<meta itemprop="name" content="Vue 微信分享">
+<meta itemprop="description" content="SPA单页应用中微信授权登录的一点思路 单页应用应该如何解决微信授权登录的尴尬跳转？后退无法返回？ 主要遇到的问题就是
+先进入单页应用，一边渲染页面一边判断用户有没有登录，当判断到没有登录时异步数据请求已经发送出去了，然后要跳转到微信授权页面，这样就浪费了一次网络请求且用户可能要去点击这个数据了结果&hellip;跳走了！在授权成功后用户点击后退再次进行授权有没有？？？ 本文主要讲述
+&gt; 对于单页应用应该在哪个阶段获取微信授权？
+&gt; 只考虑网站完全依赖微信授权登录，一进入就要以授权的身份进入
+基本思路 核心是需要有个author.vue 叫它授权中间页好了
+vue开发过程中的一些点子 由于我的业务是完全依赖微信授权登录的，也就是用户一进来就应该是已经完成授权的
+为了避免让用户明显感觉到先进入网站然后又跳转到微信授权页面
+我们从vue-router下手
+基本实现思路是： - 无论使用哪个url进入网站都会先触发router.beforeEach钩子 - 在router.beforeEach钩子中判断用户当前登录状态 - 若没有登录则保存用户进入的url并跳转到author授权页面
+- author授权页面完成微信授权以及token的写入实现用户登录 - 获取前面保存的用户进入url并跳转
+经过这样一个流程，用户感觉到的就是，无论从哪个url进入SPA，都会先显示author页面，然后再进入自己想要进入的页面，而不是先进入自己想要进入的页面再闪到author页面，这样不仅节省了资源也提升了用户体验，更重要的一点是！我们的项目多了一个广告页面(无语&hellip;)！！！
+先贴上我的实现代码
+用户信息保存在Vuex中
+// holdno是我自己定义的一个工具集 里面有各种操作方法 router.beforeEach((to, from, next) =&gt; { if(!store.state.user.id &amp;&amp; to.path != &#39;/author&#39;){ // 第一次进入项目 holdno.cookie.set(&#39;beforeLoginUrl&#39;, to.fullPath) // 保存用户进入的url next(&#39;/author&#39;) return false } next() })  下面来看一下author页面的处理逻辑
+created () { // 检测会员有没有登录 if(!holdno.cookie.get(&#39;user&#39;)){ let ua = window.navigator.userAgent.toLowerCase() if(ua.match(/MicroMessenger/i) == &#39;micromessenger&#39;){ // 跳转到微信授权页面 window.">
+
+
+<meta itemprop="datePublished" content="2018-10-15T15:09:56&#43;08:00" />
+<meta itemprop="dateModified" content="2018-10-15T15:09:56&#43;08:00" />
+<meta itemprop="wordCount" content="206">
+
+
+
+<meta itemprop="keywords" content="" />
+
+<meta name="twitter:card" content="summary"/>
+<meta name="twitter:title" content="Vue 微信分享"/>
+<meta name="twitter:description" content="SPA单页应用中微信授权登录的一点思路 单页应用应该如何解决微信授权登录的尴尬跳转？后退无法返回？ 主要遇到的问题就是
+先进入单页应用，一边渲染页面一边判断用户有没有登录，当判断到没有登录时异步数据请求已经发送出去了，然后要跳转到微信授权页面，这样就浪费了一次网络请求且用户可能要去点击这个数据了结果&hellip;跳走了！在授权成功后用户点击后退再次进行授权有没有？？？ 本文主要讲述
+&gt; 对于单页应用应该在哪个阶段获取微信授权？
+&gt; 只考虑网站完全依赖微信授权登录，一进入就要以授权的身份进入
+基本思路 核心是需要有个author.vue 叫它授权中间页好了
+vue开发过程中的一些点子 由于我的业务是完全依赖微信授权登录的，也就是用户一进来就应该是已经完成授权的
+为了避免让用户明显感觉到先进入网站然后又跳转到微信授权页面
+我们从vue-router下手
+基本实现思路是： - 无论使用哪个url进入网站都会先触发router.beforeEach钩子 - 在router.beforeEach钩子中判断用户当前登录状态 - 若没有登录则保存用户进入的url并跳转到author授权页面
+- author授权页面完成微信授权以及token的写入实现用户登录 - 获取前面保存的用户进入url并跳转
+经过这样一个流程，用户感觉到的就是，无论从哪个url进入SPA，都会先显示author页面，然后再进入自己想要进入的页面，而不是先进入自己想要进入的页面再闪到author页面，这样不仅节省了资源也提升了用户体验，更重要的一点是！我们的项目多了一个广告页面(无语&hellip;)！！！
+先贴上我的实现代码
+用户信息保存在Vuex中
+// holdno是我自己定义的一个工具集 里面有各种操作方法 router.beforeEach((to, from, next) =&gt; { if(!store.state.user.id &amp;&amp; to.path != &#39;/author&#39;){ // 第一次进入项目 holdno.cookie.set(&#39;beforeLoginUrl&#39;, to.fullPath) // 保存用户进入的url next(&#39;/author&#39;) return false } next() })  下面来看一下author页面的处理逻辑
+created () { // 检测会员有没有登录 if(!holdno.cookie.get(&#39;user&#39;)){ let ua = window.navigator.userAgent.toLowerCase() if(ua.match(/MicroMessenger/i) == &#39;micromessenger&#39;){ // 跳转到微信授权页面 window."/>
+
+
+    </head>
+<body>
+    <nav class="main-nav">
+	
+		<a href='http://ojbk.io'> <span class="arrow">←</span>Home</a>
+	
+
+	
+
+	
+</nav>
+
+    <section id="wrapper">
+        
+        
+<article class="post">
+    <header>
+        <h1>Vue 微信分享</h1>
+        <h2 class="subtitle"></h2>
+        <h2 class="headline">
+        October 15, 2018
+        <br>
+        
+        </h2>
+    </header>
+    <section id="post-body">
+        
+
+<h3 id="spa单页应用中微信授权登录的一点思路">SPA单页应用中微信授权登录的一点思路</h3>
+
+<p>单页应用应该如何解决微信授权登录的尴尬跳转？后退无法返回？
+主要遇到的问题就是<br />
+先进入单页应用，一边渲染页面一边判断用户有没有登录，当判断到没有登录时异步数据请求已经发送出去了，然后要跳转到微信授权页面，这样就浪费了一次网络请求且用户可能要去点击这个数据了结果&hellip;跳走了！在授权成功后用户点击后退再次进行授权有没有？？？
+本文主要讲述<br />
+&gt; 对于单页应用应该在哪个阶段获取微信授权？<br />
+&gt;  只考虑网站完全依赖微信授权登录，一进入就要以授权的身份进入</p>
+
+<h4 id="基本思路">基本思路</h4>
+
+<p>核心是需要有个author.vue  叫它授权中间页好了</p>
+
+<p><img src="/img/bVNZQC" alt="" /></p>
+
+<h4 id="vue开发过程中的一些点子">vue开发过程中的一些点子</h4>
+
+<p>由于我的业务是完全依赖微信授权登录的，也就是用户一进来就应该是已经完成授权的<br />
+为了避免让用户明显感觉到先进入网站然后又跳转到微信授权页面<br />
+我们从<strong>vue-router</strong>下手<br />
+基本实现思路是：
+- 无论使用哪个url进入网站都会先触发router.beforeEach钩子
+- 在router.beforeEach钩子中判断用户当前登录状态
+- 若没有登录则保存用户进入的url并跳转到author授权页面<br />
+- author授权页面完成微信授权以及token的写入实现用户登录
+- 获取前面保存的用户进入url并跳转</p>
+
+<p>经过这样一个流程，用户感觉到的就是，无论从哪个url进入SPA，都会先显示author页面，然后再进入自己想要进入的页面，而不是先进入自己想要进入的页面再<strong>闪</strong>到author页面，这样不仅节省了资源也提升了用户体验，更重要的一点是！我们的项目多了一个广告页面(无语&hellip;)！！！</p>
+
+<p>先贴上我的实现代码<br />
+用户信息保存在Vuex中</p>
+
+<pre><code class="language-javascript">// holdno是我自己定义的一个工具集 里面有各种操作方法
+router.beforeEach((to, from, next) =&gt; {
+  if(!store.state.user.id &amp;&amp; to.path != '/author'){
+    // 第一次进入项目
+    holdno.cookie.set('beforeLoginUrl', to.fullPath) // 保存用户进入的url
+    next('/author')
+    return false
+  }
+  next()
+})
+</code></pre>
+
+<p>下面来看一下author页面的处理逻辑</p>
+
+<pre><code class="language-javascript">created () {
+    // 检测会员有没有登录
+    if(!holdno.cookie.get('user')){
+      let ua = window.navigator.userAgent.toLowerCase()
+      if(ua.match(/MicroMessenger/i) == 'micromessenger'){
+        // 跳转到微信授权页面
+        window.location.href = this.webUrl + '/Wap/User/getOpenid'
+      }
+    }else{
+      // 如果有token 但是vuex中没有用户登录信息则做登录操作
+      this.login()
+    }
+},
+methods: {
+    login () {
+      let url = this.webUrl + '/Wap/User/info'
+      // 通过cookie中保存的token 获取用户信息
+      this.$http.get(url).then(response =&gt; {
+        response = response.body
+        if(response){
+          // 保存用户登录状态(Vuex)
+          this.$store.commit('user', response)
+          setTimeout(() =&gt; {
+            this.goBeforeLoginUrl() // 页面恢复(进入用户一开始请求的页面)
+          }, 2000)
+        }else{
+          this.$alert('服务器撸猫去惹 :(', 'wrong')
+          if(holdno.cookie.get('user')){
+            // 跳转到微信授权页面
+            window.location.href = this.webUrl + '/Wap/User/getOpenid'
+          }
+        }
+      })
+    }
+}
+</code></pre>
+
+<p>上述代码中 <strong>window.location.href = this.webUrl + &lsquo;/Wap/User/getOpenid&rsquo;</strong><br />
+这一段是后端请求微信授权登录接口的地址，在后端获取到用户信息及openid后再次跳转到author页面而不是直接定向到用户想要请求的位置，这样做的原因很简单。</p>
+
+<p>如果用户跳转到授权页面，由后端获取用户信息并保存好登录状态，重定向到用户请求的页面，这时只要用户点击一下后退，所有的逻辑重新再来一遍有没有？作为一个不懂技术的用户，应该也是很郁闷，为什么后退还是跳回来了呢？？？</p>
+
+<p>所以获取用户信息后再次重定向到author页面，由author做一个中间页检测到获取到用户信息后在前端做一个跳转，也就是代码中的<strong>this.goBeforeLoginUrl()</strong>(跳转到登录前的url &hellip;哈哈哈)，这时候用户再点击后退就会退回到author页面而不是后端获取用户openid的url，但真的会再次显示author页面给用户吗？并不会，回看我们路由钩子的定义：</p>
+
+<pre><code class="language-javascript">router.beforeEach((to, from, next) =&gt; {
+  if(to.path == '/author' &amp;&amp; store.state.user.id){
+    // 用户使用后退返回到授权页，则默认回到首页
+    next('/index')
+    return false
+  }
+  ...
+})
+</code></pre>
+
+<p>后面部分这里不重要，展示出来的则是关键部分，在再次跳转至author前，路由钩子被触发，检测到即将进入的页面to.path == &lsquo;/author&rsquo;成立同时刚才在this.login()中做了<strong>this.$store.commit(&lsquo;user&rsquo;, response)</strong>操作，所以if条件成立页面被直接跳转至<strong>&rsquo;/index&rsquo;</strong>首页，所以在这一个流程中，用户并没有再次看到授权页面，而是直接返回到了首页，是不是很完美！</p>
+
+<p><strong>this.goBeforeLoginUrl()</strong></p>
+
+<pre><code class="language-javascript">// 登录后跳转方法
+Vue.prototype.goBeforeLoginUrl = () =&gt; {
+  let url = holdno.cookie.get('beforeLoginUrl')
+  if(!url || url.indexOf('/author') != -1){
+    router.push('/index')
+  }else{
+    if(url == '/'){
+      url = '/index'
+    }
+    router.push(url)
+    holdno.cookie.set('beforeLoginUrl', '')
+  }
+}
+</code></pre>
+
+<p>看完整个流程，author只讲到逻辑处理，但它毕竟是一个页面，也是要展示给用户看的，只处理逻辑的话难道白花花的一片show给用户吗？当然不是！想必大家都了解app在初次启动时都有一个广告页吧，我们完全可以把author授权中间页包装成一个广告页，在用户浏览花哨的图片(广告)时默默完成授权登录的处理 :)</p>
+
+<p><img src="/img/bVUkMd" alt="图片描述" /></p>
+
+<p>大概就是这么个意思 :P</p>
+
+<h4 id="扫码体验">扫码体验</h4>
+
+<blockquote>
+<p>emmmm&hellip; 现在已经是小程序的时代了，所以我把微信web站点给关掉了，没办法体验了 不好意思。</p>
+</blockquote>
+
+<p>希望能有大神交流更优解决方案。</p>
+
+    </section>
+</article>
+
+<footer id="post-meta" class="clearfix">
+    
+    <img class="avatar" src="http://ojbk.io/images/avatar.png">
+    <div>
+        <span class="dark"></span>
+        <span></span>
+    </div>
+    
+    <section id="sharing">
+        <a class="twitter" href="https://twitter.com/intent/tweet?text=http%3a%2f%2fojbk.io%2fpost%2fvue-wechat-share%2f - Vue%20%e5%be%ae%e4%bf%a1%e5%88%86%e4%ba%ab "><span class="icon-twitter"> tweet</span></a>
+
+<a class="facebook" href="#" onclick="
+    window.open(
+      'https://www.facebook.com/sharer/sharer.php?u='+encodeURIComponent(location.href),
+      'facebook-share-dialog',
+      'width=626,height=436');
+    return false;"><span class="icon-facebook-rect"> Share</span>
+</a>
+
+    </section>
+</footer>
+
+
+
+<ul id="post-list" class="archive readmore">
+    <h3>Read more</h3>
+
+    
+    
+    
+        <li>
+            <a href="http://ojbk.io/post/kubernetes-rke/">通过RKE快速部署kubernetes集群<aside class="dates">Sep 17 2019</aside></a>
+        </li>
+    
+        <li>
+            <a href="http://ojbk.io/post/vue-jssdk/">记一次 golang 实现Twitter snowFlake算法 高效生成全局唯一ID<aside class="dates">May 8 2018</aside></a>
+        </li>
+    
+</ul>
+
+
+
+        <footer id="footer">
+    
+    <p class="small">
+    
+        © Copyright 2019 
+    
+    </p>
+</footer>
+
+    </section>
+    <script src="//ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
+<script src="http://ojbk.io/js/main.js"></script>
+<script src="http://ojbk.io/js/highlight.js"></script>
+<script>hljs.initHighlightingOnLoad();</script>
+
+
+
+
+
+</body>
+</html>

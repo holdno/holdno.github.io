@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Posts on ojbk.io</title>
+    <link>http://ojbk.io/post/</link>
+    <description>Recent content in Posts on ojbk.io</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-us</language>
+    <lastBuildDate>Tue, 17 Sep 2019 23:02:26 +0800</lastBuildDate>
+    
+	<atom:link href="http://ojbk.io/post/index.xml" rel="self" type="application/rss+xml" />
+    
+    
+    <item>
+      <title>通过RKE快速部署kubernetes集群</title>
+      <link>http://ojbk.io/post/kubernetes-rke/</link>
+      <pubDate>Tue, 17 Sep 2019 23:02:26 +0800</pubDate>
+      
+      <guid>http://ojbk.io/post/kubernetes-rke/</guid>
+      <description>前期准备 RKE:Ranchar Kubernetes Engine https://github.com/rancher/rke 由于RKE是由golang编写，所以直接下载对应系统的二进制文件即可 下载地址: https://github.com/rancher/rke/releases
+1.建议使用Ubuntu 16.04.3 LTS版本；如果使用CentOS 7，建议7.3以上版本 2.各主机的hostname主机名必须不同！ 3.hosts文件设置：/etc/hosts要配置正确，一定要有127.0.0.1 localhost 这一项；hosts文件中包含所有主机节点的IP和名称列表。
+Docker 通过Rancher提供的脚本进行安装（以下是最新支持的docker版本）
+| Docker版本 | 安装脚本 |
+| &amp;mdash;&amp;mdash;&amp;ndash; | &amp;mdash;&amp;mdash;&amp;mdash;&amp;mdash;&amp;mdash;- |
+| 18.09.2 | curl https://releases.rancher.com/install-docker/18.09.2.sh &amp;#124; sh |
+| 18.06.2 | curl https://releases.rancher.com/install-docker/18.06.2.sh &amp;#124; sh |
+| 17.03.2 | curl https://releases.rancher.com/install-docker/17.03.2.sh &amp;#124; sh |
+设置docker用户组 RKE通过SSH tunnel进行安装部署，需要事先建立RKE到各节点的SSH免密登录。如果集群中有3个节点，需要在RKE机器上执行1遍秘钥生成命令ssh-keygen，并将生成侧公钥通过分发命令：ssh-copy-id {user}@{ip}。
+在各个节点上创建ssh用户，并将其添加至docker组中：
+useradd dockeruser usermod -aG docker dockeruser   注意：重启系统以后才能生效，只重启Docker服务是不行的！重启后，docker_user用户也可以直接使用docker run命令。
+ 关闭Selinux Ubuntu 16.</description>
+    </item>
+    
+    <item>
+      <title>Vue 微信分享</title>
+      <link>http://ojbk.io/post/vue-wechat-share/</link>
+      <pubDate>Mon, 15 Oct 2018 15:09:56 +0800</pubDate>
+      
+      <guid>http://ojbk.io/post/vue-wechat-share/</guid>
+      <description>SPA单页应用中微信授权登录的一点思路 单页应用应该如何解决微信授权登录的尴尬跳转？后退无法返回？ 主要遇到的问题就是
+先进入单页应用，一边渲染页面一边判断用户有没有登录，当判断到没有登录时异步数据请求已经发送出去了，然后要跳转到微信授权页面，这样就浪费了一次网络请求且用户可能要去点击这个数据了结果&amp;hellip;跳走了！在授权成功后用户点击后退再次进行授权有没有？？？ 本文主要讲述
+&amp;gt; 对于单页应用应该在哪个阶段获取微信授权？
+&amp;gt; 只考虑网站完全依赖微信授权登录，一进入就要以授权的身份进入
+基本思路 核心是需要有个author.vue 叫它授权中间页好了
+vue开发过程中的一些点子 由于我的业务是完全依赖微信授权登录的，也就是用户一进来就应该是已经完成授权的
+为了避免让用户明显感觉到先进入网站然后又跳转到微信授权页面
+我们从vue-router下手
+基本实现思路是： - 无论使用哪个url进入网站都会先触发router.beforeEach钩子 - 在router.beforeEach钩子中判断用户当前登录状态 - 若没有登录则保存用户进入的url并跳转到author授权页面
+- author授权页面完成微信授权以及token的写入实现用户登录 - 获取前面保存的用户进入url并跳转
+经过这样一个流程，用户感觉到的就是，无论从哪个url进入SPA，都会先显示author页面，然后再进入自己想要进入的页面，而不是先进入自己想要进入的页面再闪到author页面，这样不仅节省了资源也提升了用户体验，更重要的一点是！我们的项目多了一个广告页面(无语&amp;hellip;)！！！
+先贴上我的实现代码
+用户信息保存在Vuex中
+// holdno是我自己定义的一个工具集 里面有各种操作方法 router.beforeEach((to, from, next) =&amp;gt; { if(!store.state.user.id &amp;amp;&amp;amp; to.path != &#39;/author&#39;){ // 第一次进入项目 holdno.cookie.set(&#39;beforeLoginUrl&#39;, to.fullPath) // 保存用户进入的url next(&#39;/author&#39;) return false } next() })  下面来看一下author页面的处理逻辑
+created () { // 检测会员有没有登录 if(!holdno.cookie.get(&#39;user&#39;)){ let ua = window.navigator.userAgent.toLowerCase() if(ua.match(/MicroMessenger/i) == &#39;micromessenger&#39;){ // 跳转到微信授权页面 window.</description>
+    </item>
+    
+    <item>
+      <title>记一次 golang 实现Twitter snowFlake算法 高效生成全局唯一ID</title>
+      <link>http://ojbk.io/post/vue-jssdk/</link>
+      <pubDate>Tue, 08 May 2018 11:05:56 +0800</pubDate>
+      
+      <guid>http://ojbk.io/post/vue-jssdk/</guid>
+      <description>最近在着手准备一个H5游戏
+因为这是我第一次接触游戏这个类目
+即使量不大也想好好的做它一番
+在设计表结构的时候想到了表全局唯一id这个问题
+既然是游戏
+那么一定是多人在线点点点(运营理想状态 哈哈哈)
+一开始想使用mongoDB的objectId来作为全局唯一id
+但是字符串作为索引的效率肯定不如整型来得实在
+&amp;gt; 两者的主要差别就在于，字符类型有字符集的概念，每次从存储端到展现端之间都有一个字符集编码的过程。而这一过程主要消耗的就是CPU资源，对于In-memory的操作来说，这是一个不可忽视的消耗。如果使用整型替换可以减少CPU运算及内存和IO的开销。
+所以最后考虑到理想状态下的效率及视觉效果(整型)，考虑找一个纯整型的id替代方案
+无意间看到了Twitter的snowFlake算法
+ 这篇内容大部分借鉴网络内容，整合在一起只为帮助自己和各位看官更好的理解snowFlake的原理
+ snowFlake 雪花算法 snowflake ID 算法是 twitter 使用的唯一 ID 生成算法，为了满足 Twitter 每秒上万条消息的请求，使每条消息有唯一、有一定顺序的 ID ，且支持分布式生成。
+原理 其实很简单，只需要理解：某一台拥有独立标识(为机器分配独立id)的机器在1毫秒内生成带有不同序号的id
+所以生成出来的id是具有时序性和唯一性的
+构成  这里直接借鉴前人的整理，只为给大家更加清楚的讲解
+ snowflake ID 的结构是一个 64 bit 的 int 型数据。
+- 第1位bit： 二进制中最高位为1的都是负数，但是我们所需要的id应该都是整数，所以这里最高位应该为0
+- 后面的41位bit： 用来记录生成id时的毫秒时间戳，这里毫秒只用来表示正整数(计算机中正整数包含0)，所以可以表示的数值范围是0至2^41 - 1（这里为什么要-1很多人会范迷糊，要记住，计算机中数值都是从0开始计算而不是1）
+- 再后面的10位bit： 用来记录工作机器的id
+2^10 = 1024 所以当前规则允许分布式最大节点数为1024个节点 我们可以根据业务需求来具体分配worker数和每台机器1毫秒可生成的id序号number数 - 最后的12位：
+用来表示单台机器每毫秒生成的id序号
+12位bit可以表示的最大正整数为2^12 - 1 = 4096，即可用0、1、2、3&amp;hellip;4095这4096(注意是从0开始计算)个数字来表示1毫秒内机器生成的序号(这个算法限定单台机器1毫秒内最多生成4096个id，超出则等待下一毫秒再生成)
+最后将上述4段bit通过位运算拼接起来组成64位bit</description>
+    </item>
+    
+  </channel>
+</rss>

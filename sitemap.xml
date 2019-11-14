@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+  xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  
+  <url>
+    <loc>http://ojbk.io/</loc>
+    <lastmod>2019-09-17T23:02:26+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>http://ojbk.io/post/</loc>
+    <lastmod>2019-09-17T23:02:26+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>http://ojbk.io/post/kubernetes-rke/</loc>
+    <lastmod>2019-09-17T23:02:26+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>http://ojbk.io/post/vue-wechat-share/</loc>
+    <lastmod>2018-10-15T15:09:56+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>http://ojbk.io/post/vue-jssdk/</loc>
+    <lastmod>2018-05-08T11:05:56+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>http://ojbk.io/categories/</loc>
+  </url>
+  
+  <url>
+    <loc>http://ojbk.io/tags/</loc>
+  </url>
+  
+</urlset>

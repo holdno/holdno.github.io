@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en-us">
+	<head>
+    <meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+<meta name="generator" content="Hugo 0.59.1" />
+<title>记一次 golang 实现Twitter snowFlake算法 高效生成全局唯一ID</title>
+<link rel="shortcut icon" href="http://ojbk.io/images/favicon.ico">
+<link rel="stylesheet" href="http://ojbk.io/css/style.css">
+<link rel="stylesheet" href="http://ojbk.io/css/highlight.css">
+
+
+
+<link rel="stylesheet" href="http://ojbk.io/css/monosocialiconsfont.css">
+
+
+
+
+<meta property="og:title" content="记一次 golang 实现Twitter snowFlake算法 高效生成全局唯一ID" />
+<meta property="og:description" content="最近在着手准备一个H5游戏
+因为这是我第一次接触游戏这个类目
+即使量不大也想好好的做它一番
+在设计表结构的时候想到了表全局唯一id这个问题
+既然是游戏
+那么一定是多人在线点点点(运营理想状态 哈哈哈)
+一开始想使用mongoDB的objectId来作为全局唯一id
+但是字符串作为索引的效率肯定不如整型来得实在
+&gt; 两者的主要差别就在于，字符类型有字符集的概念，每次从存储端到展现端之间都有一个字符集编码的过程。而这一过程主要消耗的就是CPU资源，对于In-memory的操作来说，这是一个不可忽视的消耗。如果使用整型替换可以减少CPU运算及内存和IO的开销。
+所以最后考虑到理想状态下的效率及视觉效果(整型)，考虑找一个纯整型的id替代方案
+无意间看到了Twitter的snowFlake算法
+ 这篇内容大部分借鉴网络内容，整合在一起只为帮助自己和各位看官更好的理解snowFlake的原理
+ snowFlake 雪花算法 snowflake ID 算法是 twitter 使用的唯一 ID 生成算法，为了满足 Twitter 每秒上万条消息的请求，使每条消息有唯一、有一定顺序的 ID ，且支持分布式生成。
+原理 其实很简单，只需要理解：某一台拥有独立标识(为机器分配独立id)的机器在1毫秒内生成带有不同序号的id
+所以生成出来的id是具有时序性和唯一性的
+构成  这里直接借鉴前人的整理，只为给大家更加清楚的讲解
+ snowflake ID 的结构是一个 64 bit 的 int 型数据。
+- 第1位bit： 二进制中最高位为1的都是负数，但是我们所需要的id应该都是整数，所以这里最高位应该为0
+- 后面的41位bit： 用来记录生成id时的毫秒时间戳，这里毫秒只用来表示正整数(计算机中正整数包含0)，所以可以表示的数值范围是0至2^41 - 1（这里为什么要-1很多人会范迷糊，要记住，计算机中数值都是从0开始计算而不是1）
+- 再后面的10位bit： 用来记录工作机器的id
+2^10 = 1024 所以当前规则允许分布式最大节点数为1024个节点 我们可以根据业务需求来具体分配worker数和每台机器1毫秒可生成的id序号number数 - 最后的12位：
+用来表示单台机器每毫秒生成的id序号
+12位bit可以表示的最大正整数为2^12 - 1 = 4096，即可用0、1、2、3&hellip;4095这4096(注意是从0开始计算)个数字来表示1毫秒内机器生成的序号(这个算法限定单台机器1毫秒内最多生成4096个id，超出则等待下一毫秒再生成)
+最后将上述4段bit通过位运算拼接起来组成64位bit" />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="http://ojbk.io/post/vue-jssdk/" />
+<meta property="article:published_time" content="2018-05-08T11:05:56+08:00" />
+<meta property="article:modified_time" content="2018-05-08T11:05:56+08:00" />
+
+
+<meta itemprop="name" content="记一次 golang 实现Twitter snowFlake算法 高效生成全局唯一ID">
+<meta itemprop="description" content="最近在着手准备一个H5游戏
+因为这是我第一次接触游戏这个类目
+即使量不大也想好好的做它一番
+在设计表结构的时候想到了表全局唯一id这个问题
+既然是游戏
+那么一定是多人在线点点点(运营理想状态 哈哈哈)
+一开始想使用mongoDB的objectId来作为全局唯一id
+但是字符串作为索引的效率肯定不如整型来得实在
+&gt; 两者的主要差别就在于，字符类型有字符集的概念，每次从存储端到展现端之间都有一个字符集编码的过程。而这一过程主要消耗的就是CPU资源，对于In-memory的操作来说，这是一个不可忽视的消耗。如果使用整型替换可以减少CPU运算及内存和IO的开销。
+所以最后考虑到理想状态下的效率及视觉效果(整型)，考虑找一个纯整型的id替代方案
+无意间看到了Twitter的snowFlake算法
+ 这篇内容大部分借鉴网络内容，整合在一起只为帮助自己和各位看官更好的理解snowFlake的原理
+ snowFlake 雪花算法 snowflake ID 算法是 twitter 使用的唯一 ID 生成算法，为了满足 Twitter 每秒上万条消息的请求，使每条消息有唯一、有一定顺序的 ID ，且支持分布式生成。
+原理 其实很简单，只需要理解：某一台拥有独立标识(为机器分配独立id)的机器在1毫秒内生成带有不同序号的id
+所以生成出来的id是具有时序性和唯一性的
+构成  这里直接借鉴前人的整理，只为给大家更加清楚的讲解
+ snowflake ID 的结构是一个 64 bit 的 int 型数据。
+- 第1位bit： 二进制中最高位为1的都是负数，但是我们所需要的id应该都是整数，所以这里最高位应该为0
+- 后面的41位bit： 用来记录生成id时的毫秒时间戳，这里毫秒只用来表示正整数(计算机中正整数包含0)，所以可以表示的数值范围是0至2^41 - 1（这里为什么要-1很多人会范迷糊，要记住，计算机中数值都是从0开始计算而不是1）
+- 再后面的10位bit： 用来记录工作机器的id
+2^10 = 1024 所以当前规则允许分布式最大节点数为1024个节点 我们可以根据业务需求来具体分配worker数和每台机器1毫秒可生成的id序号number数 - 最后的12位：
+用来表示单台机器每毫秒生成的id序号
+12位bit可以表示的最大正整数为2^12 - 1 = 4096，即可用0、1、2、3&hellip;4095这4096(注意是从0开始计算)个数字来表示1毫秒内机器生成的序号(这个算法限定单台机器1毫秒内最多生成4096个id，超出则等待下一毫秒再生成)
+最后将上述4段bit通过位运算拼接起来组成64位bit">
+
+
+<meta itemprop="datePublished" content="2018-05-08T11:05:56&#43;08:00" />
+<meta itemprop="dateModified" content="2018-05-08T11:05:56&#43;08:00" />
+<meta itemprop="wordCount" content="514">
+
+
+
+<meta itemprop="keywords" content="" />
+
+<meta name="twitter:card" content="summary"/>
+<meta name="twitter:title" content="记一次 golang 实现Twitter snowFlake算法 高效生成全局唯一ID"/>
+<meta name="twitter:description" content="最近在着手准备一个H5游戏
+因为这是我第一次接触游戏这个类目
+即使量不大也想好好的做它一番
+在设计表结构的时候想到了表全局唯一id这个问题
+既然是游戏
+那么一定是多人在线点点点(运营理想状态 哈哈哈)
+一开始想使用mongoDB的objectId来作为全局唯一id
+但是字符串作为索引的效率肯定不如整型来得实在
+&gt; 两者的主要差别就在于，字符类型有字符集的概念，每次从存储端到展现端之间都有一个字符集编码的过程。而这一过程主要消耗的就是CPU资源，对于In-memory的操作来说，这是一个不可忽视的消耗。如果使用整型替换可以减少CPU运算及内存和IO的开销。
+所以最后考虑到理想状态下的效率及视觉效果(整型)，考虑找一个纯整型的id替代方案
+无意间看到了Twitter的snowFlake算法
+ 这篇内容大部分借鉴网络内容，整合在一起只为帮助自己和各位看官更好的理解snowFlake的原理
+ snowFlake 雪花算法 snowflake ID 算法是 twitter 使用的唯一 ID 生成算法，为了满足 Twitter 每秒上万条消息的请求，使每条消息有唯一、有一定顺序的 ID ，且支持分布式生成。
+原理 其实很简单，只需要理解：某一台拥有独立标识(为机器分配独立id)的机器在1毫秒内生成带有不同序号的id
+所以生成出来的id是具有时序性和唯一性的
+构成  这里直接借鉴前人的整理，只为给大家更加清楚的讲解
+ snowflake ID 的结构是一个 64 bit 的 int 型数据。
+- 第1位bit： 二进制中最高位为1的都是负数，但是我们所需要的id应该都是整数，所以这里最高位应该为0
+- 后面的41位bit： 用来记录生成id时的毫秒时间戳，这里毫秒只用来表示正整数(计算机中正整数包含0)，所以可以表示的数值范围是0至2^41 - 1（这里为什么要-1很多人会范迷糊，要记住，计算机中数值都是从0开始计算而不是1）
+- 再后面的10位bit： 用来记录工作机器的id
+2^10 = 1024 所以当前规则允许分布式最大节点数为1024个节点 我们可以根据业务需求来具体分配worker数和每台机器1毫秒可生成的id序号number数 - 最后的12位：
+用来表示单台机器每毫秒生成的id序号
+12位bit可以表示的最大正整数为2^12 - 1 = 4096，即可用0、1、2、3&hellip;4095这4096(注意是从0开始计算)个数字来表示1毫秒内机器生成的序号(这个算法限定单台机器1毫秒内最多生成4096个id，超出则等待下一毫秒再生成)
+最后将上述4段bit通过位运算拼接起来组成64位bit"/>
+
+
+    </head>
+<body>
+    <nav class="main-nav">
+	
+		<a href='http://ojbk.io'> <span class="arrow">←</span>Home</a>
+	
+
+	
+
+	
+</nav>
+
+    <section id="wrapper">
+        
+        
+<article class="post">
+    <header>
+        <h1>记一次 golang 实现Twitter snowFlake算法 高效生成全局唯一ID</h1>
+        <h2 class="subtitle"></h2>
+        <h2 class="headline">
+        May 8, 2018
+        <br>
+        
+        </h2>
+    </header>
+    <section id="post-body">
+        
+
+<p>最近在着手准备一个H5游戏<br />
+因为这是我第一次接触游戏这个类目<br />
+即使量不大也想好好的做它一番<br />
+在设计表结构的时候想到了表全局唯一id这个问题<br />
+既然是游戏<br />
+那么一定是多人在线点点点(运营理想状态 哈哈哈)<br />
+一开始想使用mongoDB的objectId来作为全局唯一id<br />
+但是字符串作为索引的效率肯定不如整型来得实在<br />
+&gt; 两者的主要差别就在于，字符类型有字符集的概念，每次从存储端到展现端之间都有一个字符集编码的过程。而这一过程主要消耗的就是CPU资源，对于In-memory的操作来说，这是一个不可忽视的消耗。如果使用整型替换可以减少CPU运算及内存和IO的开销。</p>
+
+<p>所以最后考虑到理想状态下的效率及视觉效果(整型)，考虑找一个纯整型的id替代方案<br />
+无意间看到了Twitter的snowFlake算法</p>
+
+<blockquote>
+<p>这篇内容大部分借鉴网络内容，整合在一起只为帮助自己和各位看官更好的理解snowFlake的原理</p>
+</blockquote>
+
+<h3 id="snowflake-雪花算法">snowFlake 雪花算法</h3>
+
+<p>snowflake ID 算法是 twitter 使用的唯一 ID 生成算法，为了满足 Twitter 每秒上万条消息的请求，使每条消息有唯一、有一定顺序的 ID ，且支持分布式生成。</p>
+
+<h3 id="原理">原理</h3>
+
+<p>其实很简单，只需要理解：某一台拥有独立标识(为机器分配独立id)的机器在1毫秒内生成带有不同序号的id<br />
+所以生成出来的id是具有时序性和唯一性的</p>
+
+<h3 id="构成">构成</h3>
+
+<blockquote>
+<p>这里直接借鉴前人的整理，只为给大家更加清楚的讲解</p>
+</blockquote>
+
+<p>snowflake ID 的结构是一个 64 bit 的 int 型数据。</p>
+
+<p><img src="https://segmentfault.com/img/bV97Uz?w=800&amp;h=271" alt="clipboard.png" /><br />
+- 第1位bit：
+  二进制中最高位为1的都是负数，但是我们所需要的id应该都是整数，所以这里最高位应该为0<br />
+- 后面的41位bit：
+  用来记录生成id时的毫秒时间戳，这里毫秒只用来表示正整数(计算机中正整数包含0)，所以可以表示的数值范围是0至2^41 - 1（这里为什么要-1很多人会范迷糊，要记住，计算机中数值都是从0开始计算而不是1）<br />
+- 再后面的10位bit：
+  用来记录工作机器的id<br />
+  2^10 = 1024 所以当前规则允许分布式最大节点数为1024个节点  我们可以根据业务需求来具体分配worker数和每台机器1毫秒可生成的id序号number数
+- 最后的12位：<br />
+  用来表示单台机器每毫秒生成的id序号<br />
+  12位bit可以表示的最大正整数为2^12 - 1 = 4096，即可用0、1、2、3&hellip;4095这4096(注意是从0开始计算)个数字来表示1毫秒内机器生成的序号(这个算法限定单台机器1毫秒内最多生成4096个id，超出则等待下一毫秒再生成)</p>
+
+<p>最后将上述4段bit通过位运算拼接起来组成64位bit</p>
+
+<h3 id="实现">实现</h3>
+
+<p>这里我们用golang来实现一下snowFlake<br />
+首先定义一下snowFlake最基础的几个常量，每个常量的用户我都通过注释来详细的告诉大家</p>
+
+<pre><code class="language-golang">// 因为snowFlake目的是解决分布式下生成唯一id 所以ID中是包含集群和节点编号在内的
+
+const (
+	numberBits uint8 = 12 // 表示每个集群下的每个节点，1毫秒内可生成的id序号的二进制位 对应上图中的最后一段
+    workerBits uint8 = 10 // 每台机器(节点)的ID位数 10位最大可以有2^10=1024个节点数 即每毫秒可生成 2^12-1=4096个唯一ID 对应上图中的倒数第二段  
+    // 这里求最大值使用了位运算，-1 的二进制表示为 1 的补码，感兴趣的同学可以自己算算试试 -1 ^ (-1 &lt;&lt; nodeBits) 这里是不是等于 1023
+	workerMax int64 = -1 ^ (-1 &lt;&lt; workerBits) // 节点ID的最大值，用于防止溢出 
+	numberMax int64 = -1 ^ (-1 &lt;&lt; numberBits) // 同上，用来表示生成id序号的最大值
+	timeShift uint8 = workerBits + numberBits // 时间戳向左的偏移量
+	workerShift uint8 = numberBits // 节点ID向左的偏移量
+	// 41位字节作为时间戳数值的话，大约68年就会用完
+	// 假如你2010年1月1日开始开发系统 如果不减去2010年1月1日的时间戳 那么白白浪费40年的时间戳啊！
+	// 这个一旦定义且开始生成ID后千万不要改了 不然可能会生成相同的ID
+	epoch int64 = 1525705533000 // 这个是我在写epoch这个常量时的时间戳(毫秒)
+)
+</code></pre>
+
+<p>上述代码中 两个偏移量 timeShift 和 workerShift 是对应图中时间戳和工作节点的位置<br />
+时间戳是在从右往左的 workerBits + numberBits (即22)位开始，大家可以数数看就很容易理解了<br />
+workerShift 同理</p>
+
+<h4 id="worker-工作节点">Worker 工作节点</h4>
+
+<p>因为是分布式下的ID生成算法，所以我们要生成多个Worker，所以这里抽象出一个woker工作节点所需要的基本参数</p>
+
+<pre><code class="language-golang">// 定义一个woker工作节点所需要的基本参数
+type Worker struct {
+	mu sync.Mutex // 添加互斥锁 确保并发安全
+	timestamp int64 // 记录上一次生成id的时间戳
+	workerId int64 // 该节点的ID
+	number int64 // 当前毫秒已经生成的id序列号(从0开始累加) 1毫秒内最多生成4096个ID
+}
+</code></pre>
+
+<h4 id="实例化工作节点">实例化工作节点</h4>
+
+<p>由于是分布式情况下，我们应该通过外部配置文件或者其他方式为每台机器分配独立的id</p>
+
+<pre><code class="language-golang">// 实例化一个工作节点
+// workerId 为当前节点的id
+func NewWorker(workerId int64) (*Worker, error) {
+	// 要先检测workerId是否在上面定义的范围内
+	if workerId &lt; 0 || workerId &gt; workerMax {
+		return nil, errors.New(&quot;Worker ID excess of quantity&quot;)
+	}
+	// 生成一个新节点
+	return &amp;Worker{
+		timestamp: 0,
+		workerId: workerId,
+		number: 0,
+	}, nil
+}
+</code></pre>
+
+<blockquote>
+<p>可以通过redis来为分布式环境下的每台机子生成唯一id<br />
+该部分不包含在算法内</p>
+</blockquote>
+
+<h4 id="生成id">生成id</h4>
+
+<pre><code class="language-golang">// 生成方法一定要挂载在某个woker下，这样逻辑会比较清晰 指定某个节点生成id
+func (w *Worker) GetId() int64 {
+	// 获取id最关键的一点 加锁 加锁 加锁
+	w.mu.Lock()
+	defer w.mu.Unlock() // 生成完成后记得 解锁 解锁 解锁
+
+	// 获取生成时的时间戳
+	now := time.Now().UnixNano() / 1e6 // 纳秒转毫秒
+	if w.timestamp == now {
+		w.number++
+
+		// 这里要判断，当前工作节点是否在1毫秒内已经生成numberMax个ID
+		if w.number &gt; numberMax {
+			// 如果当前工作节点在1毫秒内生成的ID已经超过上限 需要等待1毫秒再继续生成
+			for now &lt;= w.timestamp {
+				now = time.Now().UnixNano() / 1e6
+			}
+		}
+	} else {
+		// 如果当前时间与工作节点上一次生成ID的时间不一致 则需要重置工作节点生成ID的序号
+		w.number = 0
+        // 下面这段代码看到很多前辈都写在if外面，无论节点上次生成id的时间戳与当前时间是否相同 都重新赋值  这样会增加一丢丢的额外开销 所以我这里是选择放在else里面
+		w.timestamp = now // 将机器上一次生成ID的时间更新为当前时间
+	}
+
+	ID := int64((now - epoch) &lt;&lt; timeShift | (w.workerId &lt;&lt; workerShift) | (w.number))
+	return ID
+}
+</code></pre>
+
+<p>很多新入门的朋友可能看到最后的ID := xxxxx &lt;&lt; xxx | xxxxxx &lt;&lt; xx | xxxxx 有点懵<br />
+这里是对各部分的bit进行归位并通过按位或运算(就是这个‘|’)将其整合<br />
+用一张图来解释</p>
+
+<p><img src="https://segmentfault.com/img/bV97W4?w=736&amp;h=326" alt="clipboard.png" /><br />
+想必大家看完后就很清晰了吧<br />
+至于某一段一开始位数可能不够？  别担心二进制空位会自动补0！</p>
+
+<h4 id="针对这个-多解释一下">针对这个&rdquo;|&ldquo;多解释一下</h4>
+
+<p>参加运算的两个数，换算为二进制(0、1)后，进行或运算。只要相应位上存在1，那么该位就取1，均不为1，即为0</p>
+
+<p><img src="https://segmentfault.com/img/bV97Xi?w=1008&amp;h=496" alt="clipboard.png" /></p>
+
+<p>同样 看完图就很清楚啦(百度会不会说我盗图啊T.T)</p>
+
+<h4 id="test">Test</h4>
+
+<p>接下来我们用golang的测试包来测试一下我们刚才生成的代码</p>
+
+<pre><code class="language-golang">package snowFlakeByGo
+
+import (
+	&quot;testing&quot;
+	&quot;fmt&quot;
+)
+
+func TestSnowFlakeByGo(t *testing.T) {
+	// 测试脚本
+
+	// 生成节点实例
+	worker, err := NewWorker(1)
+
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	ch := make(chan int64)
+	count := 10000
+	// 并发 count 个 goroutine 进行 snowflake ID 生成
+	for i := 0; i &lt; count; i++ {
+		go func() {
+			id := worker.GetId()
+			ch &lt;- id
+		}()
+	}
+
+	defer close(ch)
+
+	m := make(map[int64]int)
+	for i := 0; i &lt; count; i++  {
+		id := &lt;- ch
+		// 如果 map 中存在为 id 的 key, 说明生成的 snowflake ID 有重复
+		_, ok := m[id]
+		if ok {
+			t.Error(&quot;ID is not unique!\n&quot;)
+			return
+		}
+		// 将 id 作为 key 存入 map
+		m[id] = i
+	}
+	// 成功生成 snowflake ID
+	fmt.Println(&quot;All&quot;, count, &quot;snowflake ID Get successed!&quot;)
+}
+</code></pre>
+
+<h5 id="结果">结果</h5>
+
+<p>用的是17版 13寸macbook pro(非Touch Bar)进行测试</p>
+
+<pre><code class="language-golang">wbyMacBook-Pro:snowFlakeByGo xxx$ go test
+All 10000 snowflake ID Get successed!
+PASS
+ok      github.com/holdno/snowFlakeByGo 0.031s
+</code></pre>
+
+<p>并发生成一万个id用时0.031秒<br />
+如果能跑在分布式服务器上  估计更快了~<br />
+够用了够用了</p>
+
+<p>本文结合网络内容加上自己的一些小小的优化整理而成<br />
+最后附上github地址：<a href="https://github.com/holdno/snowFlakeByGo">https://github.com/holdno/snowFlakeByGo</a><br />
+觉得有用可以给颗星星哦<br />
+不早了要去洗洗睡了<br />
+晚安~</p>
+
+    </section>
+</article>
+
+<footer id="post-meta" class="clearfix">
+    
+    <img class="avatar" src="http://ojbk.io/images/avatar.png">
+    <div>
+        <span class="dark"></span>
+        <span></span>
+    </div>
+    
+    <section id="sharing">
+        <a class="twitter" href="https://twitter.com/intent/tweet?text=http%3a%2f%2fojbk.io%2fpost%2fvue-jssdk%2f - %e8%ae%b0%e4%b8%80%e6%ac%a1%20golang%20%e5%ae%9e%e7%8e%b0Twitter%20snowFlake%e7%ae%97%e6%b3%95%20%e9%ab%98%e6%95%88%e7%94%9f%e6%88%90%e5%85%a8%e5%b1%80%e5%94%af%e4%b8%80ID "><span class="icon-twitter"> tweet</span></a>
+
+<a class="facebook" href="#" onclick="
+    window.open(
+      'https://www.facebook.com/sharer/sharer.php?u='+encodeURIComponent(location.href),
+      'facebook-share-dialog',
+      'width=626,height=436');
+    return false;"><span class="icon-facebook-rect"> Share</span>
+</a>
+
+    </section>
+</footer>
+
+
+
+<ul id="post-list" class="archive readmore">
+    <h3>Read more</h3>
+
+    
+    
+    
+        <li>
+            <a href="http://ojbk.io/post/kubernetes-rke/">通过RKE快速部署kubernetes集群<aside class="dates">Sep 17 2019</aside></a>
+        </li>
+    
+        <li>
+            <a href="http://ojbk.io/post/vue-wechat-share/">Vue 微信分享<aside class="dates">Oct 15 2018</aside></a>
+        </li>
+    
+</ul>
+
+
+
+        <footer id="footer">
+    
+    <p class="small">
+    
+        © Copyright 2019 
+    
+    </p>
+</footer>
+
+    </section>
+    <script src="//ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
+<script src="http://ojbk.io/js/main.js"></script>
+<script src="http://ojbk.io/js/highlight.js"></script>
+<script>hljs.initHighlightingOnLoad();</script>
+
+
+
+
+
+</body>
+</html>

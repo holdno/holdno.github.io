@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en-us">
+	<head>
+    <meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+<meta name="generator" content="Hugo 0.59.1" />
+<title>通过RKE快速部署kubernetes集群</title>
+<link rel="shortcut icon" href="http://ojbk.io/images/favicon.ico">
+<link rel="stylesheet" href="http://ojbk.io/css/style.css">
+<link rel="stylesheet" href="http://ojbk.io/css/highlight.css">
+
+
+
+<link rel="stylesheet" href="http://ojbk.io/css/monosocialiconsfont.css">
+
+
+
+
+<meta property="og:title" content="通过RKE快速部署kubernetes集群" />
+<meta property="og:description" content="前期准备 RKE:Ranchar Kubernetes Engine https://github.com/rancher/rke 由于RKE是由golang编写，所以直接下载对应系统的二进制文件即可 下载地址: https://github.com/rancher/rke/releases
+1.建议使用Ubuntu 16.04.3 LTS版本；如果使用CentOS 7，建议7.3以上版本 2.各主机的hostname主机名必须不同！ 3.hosts文件设置：/etc/hosts要配置正确，一定要有127.0.0.1 localhost 这一项；hosts文件中包含所有主机节点的IP和名称列表。
+Docker 通过Rancher提供的脚本进行安装（以下是最新支持的docker版本）
+| Docker版本 | 安装脚本 |
+| &mdash;&mdash;&ndash; | &mdash;&mdash;&mdash;&mdash;&mdash;- |
+| 18.09.2 | curl https://releases.rancher.com/install-docker/18.09.2.sh &#124; sh |
+| 18.06.2 | curl https://releases.rancher.com/install-docker/18.06.2.sh &#124; sh |
+| 17.03.2 | curl https://releases.rancher.com/install-docker/17.03.2.sh &#124; sh |
+设置docker用户组 RKE通过SSH tunnel进行安装部署，需要事先建立RKE到各节点的SSH免密登录。如果集群中有3个节点，需要在RKE机器上执行1遍秘钥生成命令ssh-keygen，并将生成侧公钥通过分发命令：ssh-copy-id {user}@{ip}。
+在各个节点上创建ssh用户，并将其添加至docker组中：
+useradd dockeruser usermod -aG docker dockeruser   注意：重启系统以后才能生效，只重启Docker服务是不行的！重启后，docker_user用户也可以直接使用docker run命令。
+ 关闭Selinux Ubuntu 16." />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="http://ojbk.io/post/kubernetes-rke/" />
+<meta property="article:published_time" content="2019-09-17T23:02:26+08:00" />
+<meta property="article:modified_time" content="2019-09-17T23:02:26+08:00" />
+
+
+<meta itemprop="name" content="通过RKE快速部署kubernetes集群">
+<meta itemprop="description" content="前期准备 RKE:Ranchar Kubernetes Engine https://github.com/rancher/rke 由于RKE是由golang编写，所以直接下载对应系统的二进制文件即可 下载地址: https://github.com/rancher/rke/releases
+1.建议使用Ubuntu 16.04.3 LTS版本；如果使用CentOS 7，建议7.3以上版本 2.各主机的hostname主机名必须不同！ 3.hosts文件设置：/etc/hosts要配置正确，一定要有127.0.0.1 localhost 这一项；hosts文件中包含所有主机节点的IP和名称列表。
+Docker 通过Rancher提供的脚本进行安装（以下是最新支持的docker版本）
+| Docker版本 | 安装脚本 |
+| &mdash;&mdash;&ndash; | &mdash;&mdash;&mdash;&mdash;&mdash;- |
+| 18.09.2 | curl https://releases.rancher.com/install-docker/18.09.2.sh &#124; sh |
+| 18.06.2 | curl https://releases.rancher.com/install-docker/18.06.2.sh &#124; sh |
+| 17.03.2 | curl https://releases.rancher.com/install-docker/17.03.2.sh &#124; sh |
+设置docker用户组 RKE通过SSH tunnel进行安装部署，需要事先建立RKE到各节点的SSH免密登录。如果集群中有3个节点，需要在RKE机器上执行1遍秘钥生成命令ssh-keygen，并将生成侧公钥通过分发命令：ssh-copy-id {user}@{ip}。
+在各个节点上创建ssh用户，并将其添加至docker组中：
+useradd dockeruser usermod -aG docker dockeruser   注意：重启系统以后才能生效，只重启Docker服务是不行的！重启后，docker_user用户也可以直接使用docker run命令。
+ 关闭Selinux Ubuntu 16.">
+
+
+<meta itemprop="datePublished" content="2019-09-17T23:02:26&#43;08:00" />
+<meta itemprop="dateModified" content="2019-09-17T23:02:26&#43;08:00" />
+<meta itemprop="wordCount" content="492">
+
+
+
+<meta itemprop="keywords" content="" />
+
+<meta name="twitter:card" content="summary"/>
+<meta name="twitter:title" content="通过RKE快速部署kubernetes集群"/>
+<meta name="twitter:description" content="前期准备 RKE:Ranchar Kubernetes Engine https://github.com/rancher/rke 由于RKE是由golang编写，所以直接下载对应系统的二进制文件即可 下载地址: https://github.com/rancher/rke/releases
+1.建议使用Ubuntu 16.04.3 LTS版本；如果使用CentOS 7，建议7.3以上版本 2.各主机的hostname主机名必须不同！ 3.hosts文件设置：/etc/hosts要配置正确，一定要有127.0.0.1 localhost 这一项；hosts文件中包含所有主机节点的IP和名称列表。
+Docker 通过Rancher提供的脚本进行安装（以下是最新支持的docker版本）
+| Docker版本 | 安装脚本 |
+| &mdash;&mdash;&ndash; | &mdash;&mdash;&mdash;&mdash;&mdash;- |
+| 18.09.2 | curl https://releases.rancher.com/install-docker/18.09.2.sh &#124; sh |
+| 18.06.2 | curl https://releases.rancher.com/install-docker/18.06.2.sh &#124; sh |
+| 17.03.2 | curl https://releases.rancher.com/install-docker/17.03.2.sh &#124; sh |
+设置docker用户组 RKE通过SSH tunnel进行安装部署，需要事先建立RKE到各节点的SSH免密登录。如果集群中有3个节点，需要在RKE机器上执行1遍秘钥生成命令ssh-keygen，并将生成侧公钥通过分发命令：ssh-copy-id {user}@{ip}。
+在各个节点上创建ssh用户，并将其添加至docker组中：
+useradd dockeruser usermod -aG docker dockeruser   注意：重启系统以后才能生效，只重启Docker服务是不行的！重启后，docker_user用户也可以直接使用docker run命令。
+ 关闭Selinux Ubuntu 16."/>
+
+
+    </head>
+<body>
+    <nav class="main-nav">
+	
+		<a href='http://ojbk.io'> <span class="arrow">←</span>Home</a>
+	
+
+	
+
+	
+</nav>
+
+    <section id="wrapper">
+        
+        
+<article class="post">
+    <header>
+        <h1>通过RKE快速部署kubernetes集群</h1>
+        <h2 class="subtitle"></h2>
+        <h2 class="headline">
+        September 17, 2019
+        <br>
+        
+        </h2>
+    </header>
+    <section id="post-body">
+        
+
+<h2 id="前期准备">前期准备</h2>
+
+<p>RKE:Ranchar Kubernetes Engine
+<a href="https://github.com/rancher/rke">https://github.com/rancher/rke</a>
+由于RKE是由golang编写，所以直接下载对应系统的二进制文件即可
+下载地址: <a href="https://github.com/rancher/rke/releases">https://github.com/rancher/rke/releases</a></p>
+
+<p>1.建议使用Ubuntu 16.04.3 LTS版本；如果使用CentOS 7，建议7.3以上版本
+2.各主机的hostname主机名必须不同！
+3.hosts文件设置：/etc/hosts要配置正确，一定要有127.0.0.1 localhost 这一项；hosts文件中包含所有主机节点的IP和名称列表。</p>
+
+<h2 id="docker">Docker</h2>
+
+<p>通过Rancher提供的脚本进行安装（以下是最新支持的docker版本）</p>
+
+<p>| Docker版本 | 安装脚本 |<br />
+|  &mdash;&mdash;&ndash; | &mdash;&mdash;&mdash;&mdash;&mdash;-  |<br />
+|  18.09.2 |  curl <a href="https://releases.rancher.com/install-docker/18.09.2.sh">https://releases.rancher.com/install-docker/18.09.2.sh</a> &#124; sh |<br />
+|  18.06.2 |  curl <a href="https://releases.rancher.com/install-docker/18.06.2.sh">https://releases.rancher.com/install-docker/18.06.2.sh</a> &#124; sh |<br />
+|  17.03.2 |  curl <a href="https://releases.rancher.com/install-docker/17.03.2.sh">https://releases.rancher.com/install-docker/17.03.2.sh</a> &#124; sh |</p>
+
+<h3 id="设置docker用户组">设置docker用户组</h3>
+
+<p>RKE通过SSH tunnel进行安装部署，需要事先建立RKE到各节点的SSH免密登录。如果集群中有3个节点，需要在RKE机器上执行1遍秘钥生成命令ssh-keygen，并将生成侧公钥通过分发命令：ssh-copy-id {user}@{ip}。</p>
+
+<p>在各个节点上创建ssh用户，并将其添加至docker组中：</p>
+
+<pre><code>useradd dockeruser
+usermod -aG docker dockeruser 
+</code></pre>
+
+<blockquote>
+<p>注意：重启系统以后才能生效，只重启Docker服务是不行的！重启后，docker_user用户也可以直接使用docker run命令。</p>
+</blockquote>
+
+<h2 id="关闭selinux">关闭Selinux</h2>
+
+<p>Ubuntu 16.04默认未安装，无需设置。</p>
+
+<p>1）CentOS7下可修改配置文件</p>
+
+<pre><code>vi /etc/sysconfig/selinux
+</code></pre>
+
+<p>2）设置 SELINUX=disabled，重启后永久关闭。</p>
+
+<h2 id="设置ipv4转发">设置IPV4转发</h2>
+
+<p>必须开启！Ubuntu 16.04下默认已启用，无需设置。</p>
+
+<p>1）CentOS7 下可编辑配置文件：</p>
+
+<pre><code>vi /etc/sysctl.conf
+</code></pre>
+
+<p>2）设置：</p>
+
+<pre><code>net.ipv4.ip_forward = 1
+net.bridge.bridge-nf-call-ip6tables = 1
+net.bridge.bridge-nf-call-iptables = 1
+</code></pre>
+
+<p>3）执行如下命令生效：</p>
+
+<pre><code>sudo sysctl -p
+</code></pre>
+
+<h2 id="设置防火墙策略">设置防火墙策略</h2>
+
+<p>开放集群主机节点之间6443、2379、2380端口，如果是刚开始试用，可以先关闭防火墙；</p>
+
+<pre><code>systemctl stop firewalld
+</code></pre>
+
+<p>Ubuntu默认未启用UFW防火墙，无需设置。也可手工关闭：sudo ufw disable</p>
+
+<h2 id="禁用swap">禁用Swap</h2>
+
+<p>一定要禁用swap，否则kubelet组件无法运行。
+1）永久禁用swap
+可以直接修改</p>
+
+<pre><code>vi /etc/fstab
+</code></pre>
+
+<p>文件，注释掉swap项。
+2）临时禁用</p>
+
+<pre><code>swapoff -a
+</code></pre>
+
+<h2 id="启用cgroup">启用cgroup</h2>
+
+<p>修改配置文件/etc/default/grub，启用cgroup内存限额功能,配置两个参数：</p>
+
+<pre><code>GRUB_CMDLINE_LINUX_DEFAULT=&quot;cgroup_enable=memory swapaccount=1&quot;
+GRUB_CMDLINE_LINUX=&quot;cgroup_enable=memory swapaccount=1&quot;
+</code></pre>
+
+<p>注意：要执行sudo update-grub 更新grub，然后重启系统后生效。
+CentOS下执行:</p>
+
+<pre><code>grub2-mkconfig -o /boot/grub2/grub.cfg
+</code></pre>
+
+<h2 id="设置ssh">设置SSH</h2>
+
+<p>1）在rke所在主机上创建密钥：</p>
+
+<pre><code>ssh-keygen
+</code></pre>
+
+<p>2）将所生成的密钥的公钥分发到各个节点：</p>
+
+<pre><code>ssh-copy-id dockeruser@xxx.xxx.xx.xx
+...
+</code></pre>
+
+<h2 id="编写-cluster-yml">编写 cluster.yml</h2>
+
+<p>可以输入命令rke_drawin-amd64 config(我本机是mac，所以使用drawin-amd64版本)，跟着引导完成基础配置
+配置完成后将会在当前目录下出现一个 cluster.yml
+下面是该配置文件的内容（这里我配置的是包含两个节点的k8s集群，其中一个master，rke很容易支持HA部署，仅仅需要在配置文件中对多个节点指定role.controlplane即可）</p>
+
+<pre><code>nodes:
+- address: xxx.xxx.xxx.xxx
+  port: &quot;22&quot;
+  internal_address: &quot;&quot;
+  role:
+  - controlplane
+  - worker
+  - etcd
+  hostname_override: master
+  user: dockeruser
+  docker_socket: /var/run/docker.sock
+  labels: {}
+- address: xxx.xxx.xxx.xxx
+  port: &quot;22&quot;
+  internal_address: &quot;&quot;
+  role:
+  - worker
+  hostname_override: node-1
+  user: dockeruser
+  docker_socket: /var/run/docker.sock
+  ssh_key: &quot;&quot;
+  ssh_key_path: &quot;&quot;
+  ssh_cert: &quot;&quot;
+  ssh_cert_path: &quot;&quot;
+  labels: {}
+services:
+  etcd:
+    image: &quot;&quot;
+    extra_args: {}
+    extra_binds: []
+    extra_env: []
+    external_urls: []
+    ca_cert: &quot;&quot;
+    cert: &quot;&quot;
+    key: &quot;&quot;
+    path: &quot;&quot;
+    snapshot: null
+    retention: &quot;&quot;
+    creation: &quot;&quot;
+    backup_config: null
+  kube-api:
+    image: &quot;&quot;
+    extra_args: {}
+    extra_binds: []
+    extra_env: []
+    service_cluster_ip_range: 10.43.0.0/16
+    service_node_port_range: &quot;&quot;
+    pod_security_policy: false
+    always_pull_images: false
+  kube-controller:
+    image: &quot;&quot;
+    extra_args: {}
+    extra_binds: []
+    extra_env: []
+    cluster_cidr: 10.42.0.0/16
+    service_cluster_ip_range: 10.43.0.0/16
+  scheduler:
+    image: &quot;&quot;
+    extra_args: {}
+    extra_binds: []
+    extra_env: []
+  kubelet:
+    image: &quot;&quot;
+    extra_args: {}
+    extra_binds: []
+    extra_env: []
+    cluster_domain: cluster.local
+    infra_container_image: &quot;&quot;
+    cluster_dns_server: 10.43.0.10
+    fail_swap_on: false
+  kubeproxy:
+    image: &quot;&quot;
+    extra_args: {}
+    extra_binds: []
+    extra_env: []
+network:
+  plugin: flannel
+  options: {}
+authentication:
+  strategy: x509
+  sans: []
+  webhook: null
+addons: &quot;&quot;
+addons_include: []
+system_images:
+  etcd: rancher/coreos-etcd:v3.3.10-rancher1
+  alpine: rancher/rke-tools:v0.1.42
+  nginx_proxy: rancher/rke-tools:v0.1.42
+  cert_downloader: rancher/rke-tools:v0.1.42
+  kubernetes_services_sidecar: rancher/rke-tools:v0.1.42
+  kubedns: rancher/k8s-dns-kube-dns:1.15.0
+  dnsmasq: rancher/k8s-dns-dnsmasq-nanny:1.15.0
+  kubedns_sidecar: rancher/k8s-dns-sidecar:1.15.0
+  kubedns_autoscaler: rancher/cluster-proportional-autoscaler:1.3.0
+  coredns: rancher/coredns-coredns:1.3.1
+  coredns_autoscaler: rancher/cluster-proportional-autoscaler:1.3.0
+  kubernetes: rancher/hyperkube:v1.14.6-rancher1
+  flannel: rancher/coreos-flannel:v0.10.0-rancher1
+  flannel_cni: rancher/flannel-cni:v0.3.0-rancher1
+  calico_node: rancher/calico-node:v3.4.0
+  calico_cni: rancher/calico-cni:v3.4.0
+  calico_controllers: &quot;&quot;
+  calico_ctl: rancher/calico-ctl:v2.0.0
+  canal_node: rancher/calico-node:v3.4.0
+  canal_cni: rancher/calico-cni:v3.4.0
+  canal_flannel: rancher/coreos-flannel:v0.10.0
+  weave_node: weaveworks/weave-kube:2.5.0
+  weave_cni: weaveworks/weave-npc:2.5.0
+  pod_infra_container: rancher/pause:3.1
+  ingress: rancher/nginx-ingress-controller:0.21.0-rancher3
+  ingress_backend: rancher/nginx-ingress-controller-defaultbackend:1.5-rancher1
+metrics_server: rancher/metrics-server:v0.3.1
+ssh_key_path: ~/.ssh/id_rsa
+ssh_cert_path: &quot;&quot;
+ssh_agent_auth: true
+authorization:
+  mode: rbac
+  options: {}
+ignore_docker_version: false
+kubernetes_version: &quot;&quot;
+private_registries: []
+ingress:
+  provider: &quot;&quot;
+  options: {}
+  node_selector: {}
+  extra_args: {}
+cluster_name: &quot;&quot;
+cloud_provider:
+  name: &quot;&quot;
+prefix_path: &quot;&quot;
+addon_job_timeout: 0
+bastion_host:
+  address: &quot;&quot;
+  port: &quot;&quot;
+  user: &quot;&quot;
+  ssh_key: &quot;&quot;
+  ssh_key_path: &quot;&quot;
+  ssh_cert: &quot;&quot;
+  ssh_cert_path: &quot;&quot;
+monitoring:
+  provider: &quot;&quot;
+  options: {}
+restore:
+  restore: false
+  snapshot_name: &quot;&quot;
+dns: null
+</code></pre>
+
+<h2 id="安装kubernetes">安装Kubernetes</h2>
+
+<pre><code>rke_drawin-amd64 up
+</code></pre>
+
+<p>可以看到脚本开始输入一些日志信息
+最终出现</p>
+
+<pre><code>Finished building Kubernetes cluster successfully
+</code></pre>
+
+<p>则表示集群安装成功。</p>
+
+<h2 id="验证">验证</h2>
+
+<p>集群安装成功后，RKE会在当前目录创建一个kube_config_cluster.yml文件，这个文件就是kubeconfig文件</p>
+
+<p>默认情况下，kube配置文件被称为.kube_config_cluster.yml。将这个文件复制到你的本地~/.kube/config，就可以在本地使用kubectl了。</p>
+
+<p>需要注意的是，部署的本地kube配置名称是和集群配置文件相关的。例如，如果您使用名为mycluster.yml的配置文件，则本地kube配置将被命名为.kube_config_mycluster.yml。</p>
+
+<pre><code>export KUBECONFIG=./kube_config_cluster.yml
+kubectl get node
+NAME     STATUS   ROLES                      AGE     VERSION
+master   Ready    controlplane,etcd,worker   6m27s   v1.14.6
+node-1   Ready    worker                     6m5s    v1.14.6
+</code></pre>
+
+<p>看到节点信息表明安装成功</p>
+
+<h2 id="添加或删除节点">添加或删除节点</h2>
+
+<p>RKE支持为角色为worker和controlplane的主机添加或删除节点。
+1）添加节点：
+要添加其他节点，只需要更新具有其他节点的集群配置文件，并使用相同的文件运行集群配置即可。
+2）删除节点：
+要删除节点，只需从集群配置文件中的节点列表中删除它们，然后重新运行rke up命令。</p>
+
+<h2 id="高可用">高可用</h2>
+
+<p>RKE工具是满足高可用的。您可以在集群配置文件中指定多个控制面板主机，RKE将在其上部署主控组件。
+默认情况下，kubelets被配置为连接到nginx-proxy服务的地址——127.0.0.1:6443，该代理会向所有主节点发送请求。
+要启动HA集群，只需使用controlplane角色指定多个主机，然后正常启动集群即可。</p>
+
+<h2 id="删除集群">删除集群</h2>
+
+<p>RKE支持rke remove命令。该命令执行以下操作：
+连接到每个主机并删除部署在其上的Kubernetes服务。
+从服务所在的目录中清除每个主机：
+- /etc/kubernetes/ssl
+- /var/lib/etcd
+- /etc/cni
+- /opt/cni
+请注意，这个命令是不可逆的，它将彻底摧毁Kubernetes集群。</p>
+
+<h2 id="安装中可能遇到的问题">安装中可能遇到的问题</h2>
+
+<pre><code>ssh: handshake failed: ssh: unable to authenticate, attempted methods [publickey none], no supported methods remain
+</code></pre>
+
+<p>请检查配置文件中配置的用户是否可以使用指定的私钥登录机器</p>
+
+    </section>
+</article>
+
+<footer id="post-meta" class="clearfix">
+    
+    <img class="avatar" src="http://ojbk.io/images/avatar.png">
+    <div>
+        <span class="dark"></span>
+        <span></span>
+    </div>
+    
+    <section id="sharing">
+        <a class="twitter" href="https://twitter.com/intent/tweet?text=http%3a%2f%2fojbk.io%2fpost%2fkubernetes-rke%2f - %e9%80%9a%e8%bf%87RKE%e5%bf%ab%e9%80%9f%e9%83%a8%e7%bd%b2kubernetes%e9%9b%86%e7%be%a4 "><span class="icon-twitter"> tweet</span></a>
+
+<a class="facebook" href="#" onclick="
+    window.open(
+      'https://www.facebook.com/sharer/sharer.php?u='+encodeURIComponent(location.href),
+      'facebook-share-dialog',
+      'width=626,height=436');
+    return false;"><span class="icon-facebook-rect"> Share</span>
+</a>
+
+    </section>
+</footer>
+
+
+
+<ul id="post-list" class="archive readmore">
+    <h3>Read more</h3>
+
+    
+    
+    
+        <li>
+            <a href="http://ojbk.io/post/vue-wechat-share/">Vue 微信分享<aside class="dates">Oct 15 2018</aside></a>
+        </li>
+    
+        <li>
+            <a href="http://ojbk.io/post/vue-jssdk/">记一次 golang 实现Twitter snowFlake算法 高效生成全局唯一ID<aside class="dates">May 8 2018</aside></a>
+        </li>
+    
+</ul>
+
+
+
+        <footer id="footer">
+    
+    <p class="small">
+    
+        © Copyright 2019 
+    
+    </p>
+</footer>
+
+    </section>
+    <script src="//ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
+<script src="http://ojbk.io/js/main.js"></script>
+<script src="http://ojbk.io/js/highlight.js"></script>
+<script>hljs.initHighlightingOnLoad();</script>
+
+
+
+
+
+</body>
+</html>
